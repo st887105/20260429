@@ -242,15 +242,27 @@
             </button>
           </div>
 
-          <!-- Canvas 提示圖示框 -->
+          <!-- 新增：Canvas 提示圖示框 -->
           <div class="mt-6 bg-indigo-50 border-2 border-indigo-200 rounded-2xl p-6 relative overflow-hidden">
             <div class="absolute -right-4 -top-4 opacity-10"><i class="fa-solid fa-palette text-9xl text-indigo-500"></i></div>
             <h3 class="text-indigo-900 font-bold flex items-center gap-2 mb-3 text-lg z-10 relative">
-              <i class="fa-solid fa-lightbulb text-yellow-500 animate-pulse text-xl"></i> 魔法小提醒：記得使用 Canvas 模式！
+              <i class="fa-solid fa-lightbulb text-yellow-500 animate-pulse text-xl"></i> 魔法小提醒：記得開啟 Canvas 模式！
             </h3>
-            <p class="text-indigo-800 leading-relaxed z-10 relative">
-              在 Gemini 貼上咒語後，請注意尋找並點擊 <span class="bg-indigo-600 text-white px-3 py-1 rounded-md text-sm font-bold mx-1 shadow-sm"><i class="fa-brands fa-html5 mr-1"></i> 顯示程式碼</span> 或確認畫面右側有彈出 <strong>Canvas (程式碼編輯器)</strong>，這樣才能順利預覽你的遊戲喔！
+            <p class="text-indigo-800 leading-relaxed z-10 relative mb-4">
+              在 Gemini 貼上咒語後，請確認有開啟程式碼編輯器，這樣才能順利預覽你的遊戲喔！
             </p>
+            
+            <!-- 模擬的按鈕圖示，引導學生 -->
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-3 bg-white p-4 rounded-xl shadow-sm border border-indigo-100 z-10 relative text-sm sm:text-base">
+              <span class="text-gray-600 font-medium">請尋找並點擊</span>
+              <div class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold shadow-md flex items-center gap-2 transform hover:scale-105 transition">
+                <i class="fa-solid fa-file-code"></i> Canvas
+              </div>
+              <span class="text-gray-600 font-medium">或</span>
+              <div class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold shadow-md flex items-center gap-2 transform hover:scale-105 transition">
+                <i class="fa-brands fa-html5"></i> 顯示程式碼
+              </div>
+            </div>
           </div>
 
           <div class="mt-8 bg-blue-50 p-6 rounded-2xl border border-blue-100">
@@ -429,10 +441,11 @@
       syncIcon.className = "fa-solid fa-arrows-rotate text-teal-600 text-sm animate-spin";
       clearTimeout(saveTimeout);
       saveTimeout = setTimeout(() => {
+        // 重大修正：使用 text/plain 以避免跨域問題導致資料遺失
         fetch(GAS_URL, {
           method: 'POST',
           mode: 'no-cors',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify({ action: 'saveProgress', account: currentUser, progressData: data })
         }).then(() => {
           syncIcon.className = "fa-solid fa-cloud-check text-green-600 text-sm";
@@ -449,8 +462,8 @@
       btnLoginSubmit.disabled = true;
 
       try {
-        // 從雲端抓取進度
-        const res = await fetch(GAS_URL + "?action=loadProgress&account=" + account);
+        // 從雲端抓取進度 (加入時間戳記防止讀取到舊的快取)
+        const res = await fetch(GAS_URL + "?action=loadProgress&account=" + account + "&t=" + new Date().getTime());
         const data = await res.json();
         
         if (Object.keys(data).length > 0) {
@@ -613,10 +626,11 @@
       };
 
       try {
+        // 重大修正：使用 text/plain 發送
         await fetch(GAS_URL, {
           method: 'POST',
           mode: 'no-cors',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify(payload)
         });
         document.getElementById('form-submit-view').classList.add('hidden-view');
