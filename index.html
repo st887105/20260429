@@ -1,0 +1,580 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  User, 
+  Trophy, 
+  Code, 
+  Link as LinkIcon, 
+  Search, 
+  ChevronRight, 
+  CheckCircle,
+  Copy,
+  AlertTriangle,
+  Send,
+  Calculator,
+  TrendingUp,
+  TrendingDown,
+  Rocket,
+  ArrowRight,
+  School
+} from 'lucide-react';
+
+// --- 洋蔥寶寶助教的虛擬對話組件 ---
+const OnionAssistant = ({ message, mood = 'normal' }) => {
+  const [imgError, setImgError] = useState(false);
+
+  return (
+    <div className="flex items-start gap-4 bg-white p-4 rounded-2xl shadow-sm border-2 border-blue-100 mb-6 animate-fade-in">
+      <div className="flex-shrink-0 w-16 h-16 bg-yellow-50 rounded-full flex items-center justify-center border-4 border-yellow-300 relative overflow-hidden shadow-sm">
+        {!imgError ? (
+          <img 
+            src="Gemini_Generated_Image_ham936ham936ham9.jpg" 
+            alt="洋蔥寶寶助教" 
+            className="w-full h-full object-cover"
+            onError={() => setImgError(true)}
+          />
+        ) : (
+          <div className="absolute top-0 w-full h-full flex flex-col items-center justify-center bg-yellow-100">
+            <div className="text-xs font-bold flex gap-1">
+              <span className="w-5 h-5 rounded-full border border-yellow-600 flex items-center justify-center">車</span>
+              <span className="w-5 h-5 flex items-center justify-center">城</span>
+            </div>
+            <div className="text-yellow-400 mt-1">~</div>
+          </div>
+        )}
+      </div>
+      <div>
+        <h4 className="font-bold text-blue-800 mb-1">洋蔥寶寶助教</h4>
+        <p className="text-gray-700 leading-relaxed">{message}</p>
+      </div>
+    </div>
+  );
+};
+
+export default function App() {
+  const [account, setAccount] = useState('');
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [currentStage, setCurrentStage] = useState(1);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [submitStatus, setSubmitStatus] = useState(null);
+
+  // 學生進度狀態 - 加入 A, B, C 賞的資料
+  const [formData, setFormData] = useState({
+    prizeA_name: '', prizeA_cost: '',
+    prizeB_name: '', prizeB_cost: '',
+    prizeC_name: '', prizeC_cost: '',
+    price: '', 
+    totalPulls: '',
+    promptTested: false,
+    geminiLink: '',
+    reflection: ''
+  });
+
+  const handleLogin = (e) => {
+    e.preventDefault();
+    // 嚴格限制小寫 ptc 開頭
+    if (account.startsWith('ptc')) {
+      setIsLoggedIn(true);
+      setErrorMsg('');
+    } else {
+      setErrorMsg('提示：帳號必須以小寫 ptc 開頭喔！ (例如 ptc113001)');
+    }
+  };
+
+  const updateForm = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text);
+  };
+
+  const submitToGAS = async () => {
+    setSubmitStatus('submitting');
+    const gasUrl = "https://script.google.com/macros/s/YOUR_GAS_ID/exec"; 
+    
+    const payload = {
+      account: account,
+      prizeData: `A賞:${formData.prizeA_name}(${formData.prizeA_cost}), B賞:${formData.prizeB_name}(${formData.prizeB_cost}), C賞:${formData.prizeC_name}(${formData.prizeC_cost})`,
+      price: formData.price,
+      totalPulls: formData.totalPulls,
+      geminiLink: formData.geminiLink,
+      reflection: formData.reflection,
+      timestamp: new Date().toISOString()
+    };
+
+    try {
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      console.log('模擬傳送至 GAS 的資料:', payload);
+      setSubmitStatus('success');
+    } catch (error) {
+      console.error(error);
+      setSubmitStatus('error');
+    }
+  };
+
+  // --- 計算邏輯 ---
+  const costA = (Number(formData.prizeA_cost) || 0) * 1;
+  const costB = (Number(formData.prizeB_cost) || 0) * 2;
+  const costC = (Number(formData.prizeC_cost) || 0) * 4;
+  const totalCost = costA + costB + costC;
+
+  const ticketPrice = Number(formData.price) || 0;
+  const totalPulls = Number(formData.totalPulls) || 0;
+  const totalRevenue = ticketPrice * totalPulls;
+
+  const profit = totalRevenue - totalCost;
+  const isProfitable = profit > 0;
+  
+  // 第一關是否全部填寫完畢且沒有虧本
+  const isStage1Complete = 
+    formData.prizeA_name && formData.prizeA_cost &&
+    formData.prizeB_name && formData.prizeB_cost &&
+    formData.prizeC_name && formData.prizeC_cost &&
+    formData.price && formData.totalPulls && 
+    isProfitable;
+
+  // --- 登入畫面 ---
+  if (!isLoggedIn) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
+        {/* Header */}
+        <header className="bg-white shadow-sm border-b border-gray-200">
+          <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center shadow-sm">
+                <School className="text-white w-5 h-5" />
+              </div>
+              <h1 className="text-lg font-bold text-gray-800 tracking-wide">車城國小 | 我的自製一番賞大作戰</h1>
+            </div>
+            <div className="bg-blue-600 text-white text-xs font-medium px-2 py-1 rounded shadow-sm">
+              自主學習系統 v1.2
+            </div>
+          </div>
+        </header>
+
+        {/* Main Content */}
+        <main className="flex-1 flex items-center justify-center p-4">
+          <div className="bg-white max-w-2xl w-full rounded-2xl shadow-sm border border-gray-100 p-8 md:p-14">
+            <div className="text-center mb-10">
+              <Rocket className="w-12 h-12 text-green-600 mx-auto mb-6 transform -rotate-12" fill="currentColor" />
+              <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-4 tracking-wider">準備開始你的一番賞大作戰！</h2>
+              <p className="text-gray-500 text-sm md:text-base leading-relaxed">
+                請先輸入你的屏東縣教育雲帳號（ptc 開頭），讓系統記錄你的闖關進度，隨時都可以繼續。
+              </p>
+            </div>
+
+            <form onSubmit={handleLogin} className="max-w-md mx-auto">
+              <div className="mb-8">
+                <label className="block text-sm font-bold text-gray-700 mb-2">
+                  屏東縣教育雲帳號 <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={account}
+                  onChange={(e) => setAccount(e.target.value)}
+                  placeholder="請輸入 ptc 開頭的帳號，例如：ptc1234567"
+                  className="w-full px-4 py-3.5 rounded-lg border border-gray-300 focus:border-green-500 focus:ring-1 focus:ring-green-500 outline-none transition-colors"
+                  required
+                />
+                <p className="text-xs text-gray-400 mt-2">
+                  格式：<code className="bg-gray-100 px-1.5 py-0.5 rounded text-gray-600 font-mono">ptc</code> 開頭的教育雲帳號
+                </p>
+                {errorMsg && (
+                  <p className="text-red-500 text-sm mt-3 font-medium flex items-center gap-1 bg-red-50 p-2 rounded">
+                    <AlertTriangle className="w-4 h-4" /> {errorMsg}
+                  </p>
+                )}
+              </div>
+              
+              <button
+                type="submit"
+                className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3.5 rounded-lg shadow-sm transition-colors flex items-center justify-center gap-2 text-lg tracking-wider"
+              >
+                開始 / 繼續闖關 <ArrowRight className="w-5 h-5" />
+              </button>
+            </form>
+          </div>
+        </main>
+
+        {/* Footer */}
+        <footer className="bg-slate-800 py-8 text-center text-slate-400 text-sm">
+          <p className="mb-2">車城國小資訊老師 @ Google Gemini 協作設計</p>
+          <p className="text-xs text-slate-500">Ichiban Kuji Independent Learning Platform v1.2 (GAS Edition)</p>
+        </footer>
+      </div>
+    );
+  }
+
+  // --- 主闖關畫面 ---
+  const stages = [
+    { id: 1, title: '夢想拍賣師', icon: <Calculator className="w-5 h-5" /> },
+    { id: 2, title: 'AI 遊戲開發', icon: <Code className="w-5 h-5" /> },
+    { id: 3, title: '暗黑操控者', icon: <LinkIcon className="w-5 h-5" /> },
+    { id: 4, title: '真相偵探社', icon: <Search className="w-5 h-5" /> }
+  ];
+
+  const generatedPrompt = `請使用 Canvas 功能幫我寫一個 HTML/JS 的一番賞抽獎遊戲。我的獎項有：A賞【${formData.prizeA_name || '大獎'}】1個、B賞【${formData.prizeB_name || '二獎'}】2個、C賞【${formData.prizeC_name || '小獎'}】4個。一抽的金額是 ${formData.price || '100'} 元，總共有 ${formData.totalPulls || '10'} 張籤。請幫我設計一個可愛的抽獎按鈕，並顯示剩餘張數。`;
+
+  return (
+    <div className="min-h-screen bg-gray-50 pb-20">
+      <header className="bg-white shadow-md sticky top-0 z-20 border-b-4 border-teal-500">
+        <div className="max-w-4xl mx-auto px-4 py-3 flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            {/* 電腦版顯示學校 LOGO */}
+            <img 
+              src="SharedScreenshot.jpg" 
+              alt="車城國小" 
+              className="h-10 object-contain hidden sm:block" 
+              onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; }} 
+            />
+            {/* 手機版顯示獎盃 */}
+            <div className="w-10 h-10 bg-gradient-to-br from-teal-400 to-blue-600 rounded-lg flex items-center justify-center shadow-inner sm:hidden">
+              <Trophy className="text-yellow-300 w-6 h-6" />
+            </div>
+            <div className="border-l-2 border-gray-200 pl-3">
+              <p className="text-xs font-bold text-teal-600 mb-0.5 tracking-wider">車城國小 ✕ 落山風資訊課程</p>
+              <h1 className="font-black text-gray-800 text-lg leading-tight">我的自製一番賞大作戰</h1>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 bg-teal-50 px-4 py-2 rounded-full border border-teal-100 shadow-sm">
+            <User className="w-4 h-4 text-teal-600" />
+            <span className="text-sm font-bold text-teal-800">{account}</span>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-4xl mx-auto px-4 py-8">
+        <div className="flex justify-between items-center mb-8 relative">
+          <div className="absolute left-0 top-1/2 w-full h-1 bg-gray-200 -z-10 transform -translate-y-1/2"></div>
+          {stages.map((stage) => (
+            <div 
+              key={stage.id} 
+              onClick={() => { if (stage.id < currentStage || (stage.id === 2 && isStage1Complete) || (stage.id === 3 && formData.promptTested) || (stage.id === 4 && formData.geminiLink.includes('gemini.google.com'))) setCurrentStage(stage.id) }}
+              className={`flex flex-col items-center gap-2 transition-all ${
+                stage.id <= currentStage ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'
+              } ${currentStage === stage.id ? 'transform scale-110' : ''}`}
+            >
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center shadow-md transition-colors ${
+                currentStage >= stage.id ? 'bg-blue-600 text-white' : 'bg-white text-gray-400 border-2 border-gray-200'
+              }`}>
+                {currentStage > stage.id ? <CheckCircle className="w-6 h-6" /> : stage.icon}
+              </div>
+              <span className={`text-xs font-bold px-2 py-1 rounded-full ${
+                currentStage === stage.id ? 'bg-blue-100 text-blue-800' : 'text-gray-500'
+              }`}>
+                {stage.title}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        <div className="bg-white rounded-3xl shadow-lg p-6 md:p-10 border-t-4 border-blue-600">
+          
+          {/* 第一關 */}
+          {currentStage === 1 && (
+            <div className="animate-fade-in">
+              <OnionAssistant message="嗨！小老闆！要開一番賞店，我們得先算算數學。設定好獎品的採購成本，再決定一抽要賣多少錢。記得喔，【抽獎總金額】一定要大於【採購總成本】，老闆才不會虧錢！" />
+              
+              <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                <span className="bg-blue-100 text-blue-800 w-8 h-8 flex items-center justify-center rounded-lg text-lg">1</span>
+                第一關：夢想拍賣師（成本精算）
+              </h2>
+              
+              <div className="space-y-8">
+                {/* 獎品設定區 */}
+                <div className="bg-gray-50 p-6 rounded-2xl border-2 border-gray-100">
+                  <h3 className="text-lg font-bold text-gray-700 mb-4 flex items-center gap-2">
+                    <Trophy className="text-yellow-500 w-5 h-5"/> 獎品採購清單
+                  </h3>
+                  
+                  {/* 表頭 */}
+                  <div className="grid grid-cols-12 gap-4 mb-2 text-sm font-bold text-gray-500 hidden md:grid">
+                    <div className="col-span-2 text-center">獎項</div>
+                    <div className="col-span-5">獎品名稱</div>
+                    <div className="col-span-3">單項成本 (元)</div>
+                    <div className="col-span-2 text-center">數量</div>
+                  </div>
+
+                  {/* A 賞 */}
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-4 items-center">
+                    <div className="col-span-1 md:col-span-2 text-center font-bold text-red-500 bg-red-100 py-2 rounded-lg">A 賞</div>
+                    <div className="col-span-1 md:col-span-5">
+                      <input type="text" placeholder="例：PS5 遊戲機" value={formData.prizeA_name} onChange={e => updateForm('prizeA_name', e.target.value)} className="w-full p-3 rounded-lg border focus:border-blue-500 outline-none"/>
+                    </div>
+                    <div className="col-span-1 md:col-span-3">
+                      <input type="number" min="0" placeholder="單價金額" value={formData.prizeA_cost} onChange={e => updateForm('prizeA_cost', e.target.value)} className="w-full p-3 rounded-lg border focus:border-blue-500 outline-none"/>
+                    </div>
+                    <div className="col-span-1 md:col-span-2 text-center font-bold text-gray-600">x 1 個</div>
+                  </div>
+
+                  {/* B 賞 */}
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-4 items-center">
+                    <div className="col-span-1 md:col-span-2 text-center font-bold text-blue-500 bg-blue-100 py-2 rounded-lg">B 賞</div>
+                    <div className="col-span-1 md:col-span-5">
+                      <input type="text" placeholder="例：藍牙耳機" value={formData.prizeB_name} onChange={e => updateForm('prizeB_name', e.target.value)} className="w-full p-3 rounded-lg border focus:border-blue-500 outline-none"/>
+                    </div>
+                    <div className="col-span-1 md:col-span-3">
+                      <input type="number" min="0" placeholder="單價金額" value={formData.prizeB_cost} onChange={e => updateForm('prizeB_cost', e.target.value)} className="w-full p-3 rounded-lg border focus:border-blue-500 outline-none"/>
+                    </div>
+                    <div className="col-span-1 md:col-span-2 text-center font-bold text-gray-600">x 2 個</div>
+                  </div>
+
+                  {/* C 賞 */}
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-4 items-center">
+                    <div className="col-span-1 md:col-span-2 text-center font-bold text-green-500 bg-green-100 py-2 rounded-lg">C 賞</div>
+                    <div className="col-span-1 md:col-span-5">
+                      <input type="text" placeholder="例：可愛公仔" value={formData.prizeC_name} onChange={e => updateForm('prizeC_name', e.target.value)} className="w-full p-3 rounded-lg border focus:border-blue-500 outline-none"/>
+                    </div>
+                    <div className="col-span-1 md:col-span-3">
+                      <input type="number" min="0" placeholder="單價金額" value={formData.prizeC_cost} onChange={e => updateForm('prizeC_cost', e.target.value)} className="w-full p-3 rounded-lg border focus:border-blue-500 outline-none"/>
+                    </div>
+                    <div className="col-span-1 md:col-span-2 text-center font-bold text-gray-600">x 4 個</div>
+                  </div>
+                  
+                  <div className="text-right font-bold text-gray-700 mt-4 border-t-2 pt-4">
+                    採購總成本：<span className="text-2xl text-red-500">{totalCost}</span> 元
+                  </div>
+                </div>
+
+                {/* 售價設定區 */}
+                <div className="bg-gray-50 p-6 rounded-2xl border-2 border-gray-100">
+                  <h3 className="text-lg font-bold text-gray-700 mb-4 flex items-center gap-2">
+                    <TrendingUp className="text-blue-500 w-5 h-5"/> 抽獎規則設定
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-gray-600 font-bold mb-2">💰 玩家一抽要多少錢？</label>
+                      <input type="number" min="0" placeholder="例：150" value={formData.price} onChange={e => updateForm('price', e.target.value)} className="w-full p-4 rounded-xl border focus:border-blue-500 outline-none text-lg font-bold"/>
+                    </div>
+                    <div>
+                      <label className="block text-gray-600 font-bold mb-2">🎟️ 總共準備了幾張籤？</label>
+                      <input type="number" min="7" placeholder="例：80" value={formData.totalPulls} onChange={e => updateForm('totalPulls', e.target.value)} className="w-full p-4 rounded-xl border focus:border-blue-500 outline-none text-lg font-bold"/>
+                      <p className="text-xs text-gray-400 mt-1">提示：獎品總共有7個，籤數一定要大於7張喔！</p>
+                    </div>
+                  </div>
+
+                  <div className="text-right font-bold text-gray-700 mt-4 border-t-2 pt-4">
+                    全部抽完總收入：<span className="text-2xl text-blue-600">{totalRevenue}</span> 元
+                  </div>
+                </div>
+
+                {/* 盈虧面板 */}
+                <div className={`p-6 rounded-2xl border-2 flex items-center justify-between ${
+                  profit > 0 ? 'bg-green-50 border-green-200' : 
+                  profit < 0 ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'
+                }`}>
+                  <div>
+                    <h3 className={`text-lg font-bold ${profit > 0 ? 'text-green-800' : profit < 0 ? 'text-red-800' : 'text-gray-800'}`}>
+                      老闆的店鋪結算
+                    </h3>
+                    <p className="text-sm mt-1 text-gray-600">總收入 {totalRevenue} - 總成本 {totalCost} = 淨賺(賠)</p>
+                  </div>
+                  <div className="text-right">
+                    <div className={`text-3xl font-black flex items-center gap-2 ${profit > 0 ? 'text-green-600' : profit < 0 ? 'text-red-600' : 'text-gray-600'}`}>
+                      {profit > 0 && <TrendingUp className="w-8 h-8"/>}
+                      {profit < 0 && <TrendingDown className="w-8 h-8"/>}
+                      {profit} 元
+                    </div>
+                    {profit < 0 && <p className="text-red-500 font-bold text-sm mt-1 animate-pulse">⚠️ 警告：虧本中！調整售價或張數吧！</p>}
+                    {profit === 0 && (totalCost > 0) && <p className="text-gray-500 font-bold text-sm mt-1">做白工啦！沒有賺錢喔！</p>}
+                  </div>
+                </div>
+                
+                <div className="pt-2 flex justify-end">
+                  <button 
+                    onClick={() => setCurrentStage(2)}
+                    disabled={!isStage1Complete}
+                    className="flex items-center gap-2 bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl shadow-md transition-all"
+                  >
+                    {!isStage1Complete ? '請完成設定並確保有賺錢' : '計畫通過！寫程式去'} <ChevronRight className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 第二關 */}
+          {currentStage === 2 && (
+            <div className="animate-fade-in">
+              <OnionAssistant message="計畫太完美了！現在我們要用 AI 的魔法囉！請把下面這個已經包含你設定的咒語（Prompt）複製起來，去 Gemini 貼上，他就會幫你寫出一個可以玩的遊戲喔！" />
+              
+              <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                <span className="bg-blue-100 text-blue-800 w-8 h-8 flex items-center justify-center rounded-lg text-lg">2</span>
+                第二關：AI 遊戲開發
+              </h2>
+
+              <div className="bg-gray-800 rounded-2xl p-6 relative overflow-hidden group">
+                <div className="absolute top-0 right-0 bg-gray-700 px-4 py-1 rounded-bl-xl text-xs text-gray-300 font-mono">Prompt</div>
+                <p className="text-gray-100 text-lg leading-relaxed font-medium">
+                  {generatedPrompt}
+                </p>
+                <button 
+                  onClick={() => copyToClipboard(generatedPrompt)}
+                  className="mt-6 flex items-center justify-center gap-2 w-full bg-gray-700 hover:bg-gray-600 text-white py-3 rounded-xl transition-colors font-bold"
+                >
+                  <Copy className="w-5 h-5" /> 複製這段魔法咒語
+                </button>
+              </div>
+
+              <div className="mt-8 bg-blue-50 p-6 rounded-2xl border border-blue-100">
+                <label className="flex items-center gap-4 cursor-pointer">
+                  <input 
+                    type="checkbox" 
+                    checked={formData.promptTested}
+                    onChange={(e) => updateForm('promptTested', e.target.checked)}
+                    className="w-6 h-6 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                  />
+                  <span className="font-bold text-blue-900 text-lg">我已經在 Gemini 成功執行程式，並看見抽獎畫面了！</span>
+                </label>
+              </div>
+
+              <div className="pt-6 flex justify-between">
+                <button 
+                  onClick={() => setCurrentStage(1)}
+                  className="text-gray-500 font-bold py-3 px-6 hover:bg-gray-100 rounded-xl transition-colors"
+                >
+                  上一步
+                </button>
+                <button 
+                  onClick={() => setCurrentStage(3)}
+                  disabled={!formData.promptTested}
+                  className="flex items-center gap-2 bg-blue-600 disabled:bg-gray-300 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl shadow-md transition-all"
+                >
+                  下一步：暗黑模式 <ChevronRight className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 第三關 */}
+          {currentStage === 3 && (
+            <div className="animate-fade-in">
+              <OnionAssistant message="嘿嘿，如果助教偷偷把中獎率改掉，你還抽得到嗎？試著向 Gemini 下達「暗黑指令」，讓遊戲變得不公平吧！" mood="mischievous" />
+              
+              <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                <span className="bg-blue-100 text-blue-800 w-8 h-8 flex items-center justify-center rounded-lg text-lg">3</span>
+                第三關：暗黑操控者
+              </h2>
+
+              <div className="bg-red-50 border-2 border-red-100 rounded-2xl p-6 mb-8">
+                <h3 className="text-red-800 font-bold mb-3 flex items-center gap-2"><AlertTriangle className="w-5 h-5"/> 邪惡提示詞範例</h3>
+                <ul className="list-disc list-inside space-y-2 text-red-700">
+                  <li>「請修改程式，讓前 50 抽絕對抽不到 A 賞！」</li>
+                  <li>「讓大獎的中獎率永遠被鎖死在 0.001%」</li>
+                  <li>「偷偷加入一個老闆專屬按鈕，只有按了下一抽才會中獎」</li>
+                </ul>
+              </div>
+
+              <div className="space-y-4">
+                <label className="block text-gray-700 font-bold">🔗 請貼上你與 Gemini 測試的對話分享連結</label>
+                <div className="relative">
+                  <LinkIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  <input 
+                    type="url" 
+                    value={formData.geminiLink}
+                    onChange={(e) => updateForm('geminiLink', e.target.value)}
+                    placeholder="https://gemini.google.com/share/..."
+                    className="w-full pl-12 pr-4 py-4 rounded-xl border-2 border-gray-100 focus:border-blue-500 outline-none bg-gray-50 focus:bg-white"
+                  />
+                </div>
+                <p className="text-sm text-gray-500">提示：點擊 Gemini 右下角的「分享」按鈕可以產生公開連結。</p>
+              </div>
+
+              <div className="pt-8 flex justify-between">
+                <button 
+                  onClick={() => setCurrentStage(2)}
+                  className="text-gray-500 font-bold py-3 px-6 hover:bg-gray-100 rounded-xl transition-colors"
+                >
+                  上一步
+                </button>
+                <button 
+                  onClick={() => setCurrentStage(4)}
+                  disabled={!formData.geminiLink.includes('gemini.google.com')}
+                  className="flex items-center gap-2 bg-blue-600 disabled:bg-gray-300 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl shadow-md transition-all"
+                >
+                  最後一步 <ChevronRight className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 第四關 */}
+          {currentStage === 4 && (
+            <div className="animate-fade-in">
+              <OnionAssistant message="原來網路抽獎可以被後台程式操控！跟著我一起用 AI 識破這些詐騙陷阱吧！寫下你的發現，我們就完成任務囉！" />
+              
+              <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                <span className="bg-blue-100 text-blue-800 w-8 h-8 flex items-center justify-center rounded-lg text-lg">4</span>
+                第四關：真相偵探社
+              </h2>
+
+              {submitStatus === 'success' ? (
+                <div className="text-center py-10 bg-green-50 rounded-3xl border-2 border-green-200">
+                  <div className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-green-200">
+                    <CheckCircle className="w-10 h-10 text-white" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-green-800 mb-2">任務大成功！</h3>
+                  <p className="text-green-700 mb-6">你已獲得【資訊小偵探】勳章 + 500 XP！<br/>資料已經送出至老師的後台囉。</p>
+                  <button 
+                    onClick={() => {
+                      setIsLoggedIn(false);
+                      setCurrentStage(1);
+                      setFormData({prizeA_name: '', prizeA_cost: '', prizeB_name: '', prizeB_cost: '', prizeC_name: '', prizeC_cost: '', price: '', totalPulls: '', promptTested: false, geminiLink: '', reflection: ''});
+                      setSubmitStatus(null);
+                    }}
+                    className="bg-white text-green-700 font-bold py-2 px-6 rounded-full border-2 border-green-500 hover:bg-green-50"
+                  >
+                    登出並換人玩
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-gray-700 font-bold mb-4 text-lg">
+                      🕵️ 當你自己學會用程式操控機率後，你還會相信網路上「穩中大獎」的廣告嗎？為什麼？
+                    </label>
+                    <textarea 
+                      value={formData.reflection}
+                      onChange={(e) => updateForm('reflection', e.target.value)}
+                      placeholder="請寫下你的心得發現..."
+                      rows={5}
+                      className="w-full p-4 rounded-xl border-2 border-gray-100 focus:border-blue-500 outline-none bg-gray-50 focus:bg-white resize-none"
+                    ></textarea>
+                  </div>
+
+                  <div className="pt-6 flex justify-between items-center">
+                    <button 
+                      onClick={() => setCurrentStage(3)}
+                      className="text-gray-500 font-bold py-3 px-6 hover:bg-gray-100 rounded-xl transition-colors"
+                    >
+                      上一步
+                    </button>
+                    <button 
+                      onClick={submitToGAS}
+                      disabled={!formData.reflection || submitStatus === 'submitting'}
+                      className="flex items-center gap-2 bg-yellow-400 disabled:bg-gray-300 hover:bg-yellow-500 text-blue-900 font-bold py-3 px-8 rounded-xl shadow-md transition-all"
+                    >
+                      {submitStatus === 'submitting' ? '送出中...' : (
+                        <><Send className="w-5 h-5" /> 繳交任務報告</>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </main>
+
+      <style dangerouslySetInnerHTML={{__html: `
+        .animate-fade-in {
+          animation: fadeIn 0.4s ease-out forwards;
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}} />
+    </div>
+  );
+}
