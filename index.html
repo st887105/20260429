@@ -37,7 +37,7 @@
           <h1 class="text-lg font-bold text-gray-800 tracking-wide">車城國小 | 我的自製一番賞大作戰</h1>
         </div>
         <div class="bg-blue-600 text-white text-xs font-medium px-2 py-1 rounded shadow-sm">
-          自主學習系統 v1.2
+          自主學習系統 v1.3
         </div>
       </div>
     </header>
@@ -86,7 +86,7 @@
     <!-- Footer -->
     <footer class="bg-slate-800 py-8 text-center text-slate-400 text-sm mt-auto">
       <p class="mb-2">車城國小資訊老師 @ Google Gemini 協作設計</p>
-      <p class="text-xs text-slate-500">Ichiban Kuji Independent Learning Platform v1.2 (GAS Edition)</p>
+      <p class="text-xs text-slate-500">Ichiban Kuji Independent Learning Platform v1.3 (GAS Edition)</p>
     </footer>
   </div>
 
@@ -441,6 +441,67 @@
     const reflection = document.getElementById('reflection');
     const btnSubmit = document.getElementById('btn-submit');
 
+    // --- LocalStorage 自動存檔機制 ---
+    function saveProgress() {
+      if (!currentUser) return;
+      const data = {
+        currentStage,
+        prizeAName: prizeAName.value,
+        prizeACost: prizeACost.value,
+        prizeBName: prizeBName.value,
+        prizeBCost: prizeBCost.value,
+        prizeCName: prizeCName.value,
+        prizeCCost: prizeCCost.value,
+        price: priceInput.value,
+        totalPulls: totalPullsInput.value,
+        promptTested: promptTested.checked,
+        geminiLink: geminiLink.value,
+        reflection: reflection.value
+      };
+      localStorage.setItem('ptc_progress_' + currentUser, JSON.stringify(data));
+    }
+
+    function loadProgress(account) {
+      const saved = localStorage.getItem('ptc_progress_' + account);
+      if (saved) {
+        try {
+          const data = JSON.parse(saved);
+          currentStage = data.currentStage || 1;
+          prizeAName.value = data.prizeAName || '';
+          prizeACost.value = data.prizeACost || '';
+          prizeBName.value = data.prizeBName || '';
+          prizeBCost.value = data.prizeBCost || '';
+          prizeCName.value = data.prizeCName || '';
+          prizeCCost.value = data.prizeCCost || '';
+          priceInput.value = data.price || '';
+          totalPullsInput.value = data.totalPulls || '';
+          promptTested.checked = data.promptTested || false;
+          geminiLink.value = data.geminiLink || '';
+          reflection.value = data.reflection || '';
+        } catch (e) {
+          console.error("載入進度失敗", e);
+          resetFields();
+        }
+      } else {
+        resetFields(); // 沒紀錄就清空狀態
+      }
+      // 強制觸發一次運算與按鈕狀態更新
+      updateCalculations();
+      btnNext2.disabled = !promptTested.checked;
+      btnNext3.disabled = !geminiLink.value.includes('gemini.google.com');
+      btnSubmit.disabled = reflection.value.trim() === '';
+    }
+
+    function resetFields() {
+      currentStage = 1;
+      prizeAName.value = ''; prizeACost.value = '';
+      prizeBName.value = ''; prizeBCost.value = '';
+      prizeCName.value = ''; prizeCCost.value = '';
+      priceInput.value = ''; totalPullsInput.value = '';
+      promptTested.checked = false;
+      geminiLink.value = ''; reflection.value = '';
+    }
+
     // --- 登入邏輯 ---
     loginForm.addEventListener('submit', (e) => {
       e.preventDefault();
@@ -448,6 +509,10 @@
       if (val.startsWith('ptc')) {
         currentUser = val;
         displayAccount.innerText = currentUser;
+        
+        // 登入成功後，載入該帳號之前的進度
+        loadProgress(currentUser);
+        
         loginView.classList.add('hidden-view');
         appView.classList.remove('hidden-view');
         updateStageView();
@@ -520,6 +585,7 @@
       }
 
       updateNavUI();
+      saveProgress(); // 每次更動都自動存檔
     }
 
     calcInputs.forEach(input => input.addEventListener('input', updateCalculations));
@@ -546,17 +612,20 @@
     promptTested.addEventListener('change', (e) => {
       btnNext2.disabled = !e.target.checked;
       updateNavUI();
+      saveProgress(); // 存檔
     });
 
     // --- 階段三：連結邏輯 ---
     geminiLink.addEventListener('input', (e) => {
       btnNext3.disabled = !e.target.value.includes('gemini.google.com');
       updateNavUI();
+      saveProgress(); // 存檔
     });
 
     // --- 階段四：提交邏輯 ---
     reflection.addEventListener('input', (e) => {
       btnSubmit.disabled = e.target.value.trim() === '';
+      saveProgress(); // 存檔
     });
 
     btnSubmit.addEventListener('click', async () => {
@@ -577,7 +646,7 @@
         // 模擬網路延遲
         await new Promise(resolve => setTimeout(resolve, 1500));
         
-        // --- 實際串接 GAS 送出資料 ---
+        // --- 實際串接 GAS 送出資料（已解除封印） ---
         await fetch(GAS_URL, {
           method: 'POST',
           mode: 'no-cors',
@@ -597,7 +666,9 @@
     });
 
     document.getElementById('btn-logout').addEventListener('click', () => {
-      location.reload(); // 重新整理頁面即可清空狀態
+      // 學生登出後清空該帳號記錄，確保下一位使用者或自己下次重玩可以重新開始
+      localStorage.removeItem('ptc_progress_' + currentUser);
+      location.reload(); 
     });
 
     // --- 畫面切換控制 ---
@@ -607,6 +678,7 @@
       // 顯示當前關卡
       document.getElementById(`stage-${currentStage}`).classList.remove('hidden-view');
       updateNavUI();
+      saveProgress(); // 切換關卡時存檔
     }
 
     function updateNavUI() {
