@@ -32,7 +32,7 @@
           <h1 class="text-lg font-bold text-gray-800 tracking-wide">車城國小 | 我的自製一番賞大作戰</h1>
         </div>
         <div class="bg-blue-600 text-white text-xs font-medium px-2 py-1 rounded shadow-sm">
-          自主學習系統 v1.4 (雲端同步版)
+          自主學習系統 v1.5 (雲端同步版)
         </div>
       </div>
     </header>
@@ -82,7 +82,7 @@
     <!-- Footer -->
     <footer class="bg-slate-800 py-8 text-center text-slate-400 text-sm mt-auto">
       <p class="mb-2">車城國小資訊老師 @ Google Gemini 協作設計</p>
-      <p class="text-xs text-slate-500">Ichiban Kuji Cloud Sync Platform v1.4</p>
+      <p class="text-xs text-slate-500">Ichiban Kuji Cloud Sync Platform v1.5</p>
     </footer>
   </div>
 
@@ -441,7 +441,6 @@
       syncIcon.className = "fa-solid fa-arrows-rotate text-teal-600 text-sm animate-spin";
       clearTimeout(saveTimeout);
       saveTimeout = setTimeout(() => {
-        // 重大修正：使用 text/plain 以避免跨域問題導致資料遺失
         fetch(GAS_URL, {
           method: 'POST',
           mode: 'no-cors',
@@ -454,6 +453,20 @@
           syncIcon.className = "fa-solid fa-cloud-xmark text-red-500 text-sm";
         });
       }, 2500);
+    }
+
+    // ★ 修正 1：不走 debounce，立即強制同步雲端（繳交後使用）
+    function saveProgressImmediate() {
+      if (!currentUser) return;
+      const data = collectData();
+      localStorage.setItem('ptc_progress_' + currentUser, JSON.stringify(data));
+      clearTimeout(saveTimeout);
+      fetch(GAS_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'saveProgress', account: currentUser, progressData: data })
+      }).catch(() => {});
     }
 
     async function loadProgress(account) {
@@ -481,11 +494,12 @@
         else resetFields();
       }
 
-      // 畫面準備完畢，進入應用程式
+      // ★ 修正 2：載入資料後，強制重新計算所有按鈕與導覽列狀態
       updateCalculations();
       btnNext2.disabled = !promptTested.checked;
       btnNext3.disabled = !geminiLink.value.includes('gemini.google.com');
       btnSubmit.disabled = reflection.value.trim() === '';
+      updateNavUI(); // ← 補上這行，確保導覽列正確亮起
 
       loginView.classList.add('hidden-view');
       appView.classList.remove('hidden-view');
@@ -616,7 +630,7 @@
       btnSubmit.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> 送出中...`;
 
       const payload = {
-        action: 'submitFinal', // 告訴後端這是繳交報告
+        action: 'submitFinal',
         account: currentUser,
         prizeData: `A賞:${prizeAName.value}(${prizeACost.value}), B賞:${prizeBName.value}(${prizeBCost.value}), C賞:${prizeCName.value}(${prizeCCost.value})`,
         price: priceInput.value,
@@ -626,13 +640,17 @@
       };
 
       try {
-        // 重大修正：使用 text/plain 發送
         await fetch(GAS_URL, {
           method: 'POST',
           mode: 'no-cors',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify(payload)
         });
+
+        // ★ 修正 1：繳交成功後，立即強制同步最終進度（含最新感想）到雲端
+        //    避免下次登入時讀到 debounce 延遲造成的舊版感想
+        saveProgressImmediate();
+
         document.getElementById('form-submit-view').classList.add('hidden-view');
         document.getElementById('success-view').classList.remove('hidden-view');
         // 刪除本機存檔
